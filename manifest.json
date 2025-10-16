@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "AI Agent for Chrome: Codex",
+  "name": "Codex For Chrome: In-browser AI Agent",
   "version": "0.0.1",
   "description": "AI-powered browser automation agent preserving codex-rs SQ/EQ architecture",
   "permissions": [
@@ -25,9 +25,9 @@
   "action": {
     "default_title": "Codex Agent",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "static/logo_png_no_word_round_128_w_dev.png",
+      "48": "static/logo_png_no_word_round_128_w_dev.png",
+      "128": "static/logo_png_no_word_round_128_w_dev.png"
     }
   },
   "side_panel": {
@@ -40,9 +40,9 @@
     "run_at": "document_idle"
   }],
   "icons": {
-    "16": "icons/icon16.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "16": "static/logo_png_no_word_round_128_w_dev.png",
+    "48": "static/logo_png_no_word_round_128_w_dev.png",
+    "128": "static/logo_png_no_word_round_128_w_dev.png"
   },
   "commands": {
     "toggle-sidepanel": {

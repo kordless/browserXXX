@@ -10,6 +10,7 @@
   import Settings from './Settings.svelte';
   import EventDisplay from './components/event_display/EventDisplay.svelte';
   import { EventProcessor } from './components/event_display/EventProcessor';
+  import { welcomeAsciiLines } from './constants/welcomeAscii';
 
   let router: MessageRouter;
   let eventProcessor: EventProcessor;
@@ -20,7 +21,11 @@
   let isProcessing = false;
   let showSettings = false;
   let showTooltip = false;
+  let showNewConvTooltip = false;
+  let showWelcome = false;
   let scrollContainer: HTMLDivElement;
+  $: showWelcome =
+    !isProcessing && processedEvents.length === 0 && messages.length === 0;
 
   onMount(async () => {
     // Clear messages from previous session
@@ -189,73 +194,142 @@
     // Handle auth updates if needed
     console.log('Auth updated:', event.detail);
   }
+
+  async function startNewConversation() {
+    // Clear UI state
+    messages = [];
+    processedEvents = [];
+    inputText = '';
+    isProcessing = false;
+
+    // Reset event processor
+    eventProcessor.reset();
+
+    // Request session reset from backend
+    try {
+      await router.requestSessionReset();
+      console.log('New conversation started - session reset');
+    } catch (error) {
+      console.error('Failed to reset session:', error);
+      messages = [...messages, {
+        type: 'agent',
+        content: 'Failed to start new conversation. Please try again.',
+        timestamp: Date.now(),
+      }];
+    }
+  }
 </script>
 
-<TerminalContainer>
-  <!-- Status Line -->
-  <div class="flex justify-between mb-2">
-    <TerminalMessage type="system" content="Codex For Chrome v1.0.0 (By AI Republic)" />
-    <div class="flex items-center space-x-2">
-      {#if isProcessing}
-        <TerminalMessage type="warning" content="[PROCESSING]" />
-      {/if}
-      <TerminalMessage
-        type={isConnected ? 'system' : 'error'}
-        content={isConnected ? '[CONNECTED]' : '[DISCONNECTED]'}
-      />
+<div class="terminal-layout">
+  <TerminalContainer>
+    <!-- Status Line -->
+    <div class="flex justify-between mb-2">
+      <TerminalMessage type="system" content="Codex For Chrome v0.0.1 (By AI Republic)" />
+      <div class="flex items-center space-x-2">
+        {#if isProcessing}
+          <TerminalMessage type="warning" content="[PROCESSING]" />
+        {/if}
+        <TerminalMessage
+          type={isConnected ? 'system' : 'error'}
+          content={isConnected ? '[CONNECTED]' : '[DISCONNECTED]'}
+        />
+      </div>
     </div>
-  </div>
 
-  <!-- Messages -->
-  <div class="flex-1 overflow-y-auto mb-4 space-y-2" bind:this={scrollContainer}>
-    {#if processedEvents.length === 0 && messages.length === 0}
-      <TerminalMessage type="system" content="Welcome to Codex Terminal" />
-      <TerminalMessage type="default" content="Ready for input. Type a command to begin..." />
-    {/if}
-
-    {#each messages as message (message.timestamp)}
-      <TerminalMessage type={message.type === 'user' ? 'input' : getMessageType(message)} content={message.content} />
-    {/each}
-
-    {#each processedEvents as event (event.id)}
-      <EventDisplay {event} />
-    {/each}
-  </div>
-
-  <!-- Input -->
-  <div class="terminal-prompt flex items-center">
-    <span class="text-term-dim-green mr-2">&gt;</span>
-    <TerminalInput
-      bind:value={inputText}
-      onSubmit={sendMessage}
-      placeholder="Enter command..."
-    />
-  </div>
-
-  <!-- Settings Gear Icon -->
-  <div class="fixed bottom-4 right-4">
-    <button
-      class="settings-button p-2 rounded-full bg-term-bg-dark border border-term-border hover:bg-term-bg-hover transition-colors relative"
-      on:click={toggleSettings}
-      on:mouseenter={() => showTooltip = true}
-      on:mouseleave={() => showTooltip = false}
-      aria-label="Settings"
-    >
-      <!-- Gear Icon SVG -->
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-term-dim-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-
-      <!-- Tooltip -->
-      {#if showTooltip}
-        <div class="tooltip absolute bottom-full mb-2 right-0 px-2 py-1 bg-term-bg-dark border border-term-border rounded text-xs text-term-dim-green whitespace-nowrap">
-          setting
+    <!-- Messages - scrollable area -->
+    <div class="messages-container" bind:this={scrollContainer}>
+      {#if showWelcome}
+        <div class="welcome-screen" role="presentation">
+          <pre class="welcome-ascii">
+            {#each welcomeAsciiLines as line, index (index)}
+              <span class={line.color}>{line.text}</span>
+            {/each}
+          </pre>
+          <p class="welcome-subtitle text-term-bright-green">
+            General in-browser AI agent for work tasks
+          </p>
+          <p class="welcome-subtitle text-term-dim-green">
+            Developed and supported by AI Republic
+          </p>
+          <a
+            class="welcome-link"
+            href="https://airepublic.com"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Learn more
+          </a>
         </div>
       {/if}
-    </button>
-  </div>
-</TerminalContainer>
+
+      {#each messages as message (message.timestamp)}
+        <TerminalMessage type={message.type === 'user' ? 'input' : getMessageType(message)} content={message.content} />
+      {/each}
+
+      {#each processedEvents as event (event.id)}
+        <EventDisplay {event} />
+      {/each}
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <div class="terminal-prompt flex items-center">
+        <span class="text-term-dim-green mr-2">&gt;</span>
+        <TerminalInput
+          bind:value={inputText}
+          onSubmit={sendMessage}
+          placeholder="Enter command..."
+        />
+      </div>
+    </div>
+
+    <!-- Fixed bottom function menu -->
+    <div class="function-menu">
+      <!-- New Conversation Button -->
+      <button
+        class="function-button p-2 rounded-full bg-term-bg border border-term-dim-green hover:bg-term-bg-hover transition-colors relative"
+        on:click={startNewConversation}
+        on:mouseenter={() => showNewConvTooltip = true}
+        on:mouseleave={() => showNewConvTooltip = false}
+        aria-label="Start New Conversation"
+      >
+        <!-- New Conversation Icon SVG (Plus/Refresh) -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-term-dim-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+
+        <!-- Tooltip -->
+        {#if showNewConvTooltip}
+          <div class="tooltip absolute bottom-full mb-2 right-0 px-2 py-1 bg-term-bg border border-term-dim-green rounded text-xs text-term-dim-green whitespace-nowrap">
+            New Conversation
+          </div>
+        {/if}
+      </button>
+
+      <!-- Settings Button -->
+      <button
+        class="function-button p-2 rounded-full bg-term-bg border border-term-dim-green hover:bg-term-bg-hover transition-colors relative"
+        on:click={toggleSettings}
+        on:mouseenter={() => showTooltip = true}
+        on:mouseleave={() => showTooltip = false}
+        aria-label="Settings"
+      >
+        <!-- Gear Icon SVG -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-term-dim-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+
+        <!-- Tooltip -->
+        {#if showTooltip}
+          <div class="tooltip absolute bottom-full mb-2 right-0 px-2 py-1 bg-term-bg border border-term-dim-green rounded text-xs text-term-dim-green whitespace-nowrap">
+            Settings
+          </div>
+        {/if}
+      </button>
+    </div>
+  </TerminalContainer>
+</div>
 
 <!-- Settings Modal -->
 {#if showSettings}
@@ -272,18 +346,99 @@
 <style>
   /* Component-specific styles */
 
-  .settings-button {
+  .terminal-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
+  }
+
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    /* Reserve space for input and function menu */
+    max-height: calc(100vh - 200px);
+  }
+
+  .input-area {
+    padding: 0.5rem 0;
+    background: var(--color-term-bg);
+    position: relative;
+    z-index: 10;
+  }
+
+  .function-menu {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--color-term-bg);
+    z-index: 30;
+  }
+
+  .function-button {
     z-index: 40;
     transition: all 0.2s ease;
   }
 
-  .settings-button:hover {
-    transform: rotate(30deg);
+  .function-button:hover {
+    transform: scale(1.1);
+  }
+
+  .function-button:active {
+    transform: scale(0.95);
   }
 
   .tooltip {
     animation: fadeIn 0.2s ease;
     z-index: 50;
+  }
+
+  .welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-term-dim-green);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    margin-bottom: 1.5rem;
+    max-width: 100%;
+  }
+
+  .welcome-ascii {
+    margin: 0;
+    font-family: var(--font-terminal);
+    font-size: 0.6rem;
+    line-height: 1.0;
+    white-space: pre;
+  }
+
+  .welcome-ascii span {
+    display: block;
+  }
+
+  .welcome-subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .welcome-link {
+    color: var(--color-term-bright-green);
+    text-decoration: underline;
+  }
+
+  .welcome-link:hover,
+  .welcome-link:focus {
+    color: var(--color-term-yellow);
   }
 
   @keyframes fadeIn {
