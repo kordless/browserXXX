@@ -73,13 +73,29 @@ function build() {
       }
     });
     
-    // Copy static assets if they exist
+    // Copy static assets directory
+    const staticPath = path.join(__dirname, '..', 'src', 'static');
+    if (fs.existsSync(staticPath)) {
+      log('\n🎨 Copying static assets...', colors.yellow);
+      const staticDest = path.join(distPath, 'static');
+      fs.mkdirSync(staticDest, { recursive: true });
+
+      fs.readdirSync(staticPath).forEach(file => {
+        fs.copyFileSync(
+          path.join(staticPath, file),
+          path.join(staticDest, file)
+        );
+      });
+      log('  ✓ Copied static directory', colors.green);
+    }
+
+    // Copy icons directory if it exists
     const iconsPath = path.join(__dirname, '..', 'icons');
     if (fs.existsSync(iconsPath)) {
       log('\n🎨 Copying icons...', colors.yellow);
       const iconsDest = path.join(distPath, 'icons');
       fs.mkdirSync(iconsDest, { recursive: true });
-      
+
       fs.readdirSync(iconsPath).forEach(file => {
         fs.copyFileSync(
           path.join(iconsPath, file),
