@@ -86,17 +86,17 @@ describe('App.svelte - User Message Display', () => {
 });
 
 describe('App.svelte - Branding Label', () => {
-  it('should display "Codex For Chrome v1.0.0 (By AI Republic)"', () => {
+  it('should display "Codex For Chrome v0.0.1 (By AI Republic)"', () => {
     const appSource = require('fs').readFileSync(
       require('path').join(__dirname, '../../src/sidepanel/App.svelte'),
       'utf-8'
     );
 
     // Check for updated branding string
-    expect(appSource).toContain('Codex For Chrome v1.0.0 (By AI Republic)');
+    expect(appSource).toContain('Codex For Chrome v0.0.1 (By AI Republic)');
   });
 
-  it('should NOT display "Codex Terminal v1.0.0"', () => {
+  it('should NOT display "Codex Terminal v0.0.1"', () => {
     const appSource = require('fs').readFileSync(
       require('path').join(__dirname, '../../src/sidepanel/App.svelte'),
       'utf-8'

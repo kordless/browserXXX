@@ -224,7 +224,7 @@
   <TerminalContainer>
     <!-- Status Line -->
     <div class="flex justify-between mb-2">
-      <TerminalMessage type="system" content="Codex For Chrome v1.0.0 (By AI Republic)" />
+      <TerminalMessage type="system" content="Codex For Chrome v0.0.1 (By AI Republic)" />
       <div class="flex items-center space-x-2">
         {#if isProcessing}
           <TerminalMessage type="warning" content="[PROCESSING]" />
@@ -246,7 +246,7 @@
             {/each}
           </pre>
           <p class="welcome-subtitle text-term-bright-green">
-            General in browser AI agent for work tasks
+            General in-browser AI agent for work tasks
           </p>
           <p class="welcome-subtitle text-term-dim-green">
             Developed and supported by AI Republic
