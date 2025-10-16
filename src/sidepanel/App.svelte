@@ -10,6 +10,7 @@
   import Settings from './Settings.svelte';
   import EventDisplay from './components/event_display/EventDisplay.svelte';
   import { EventProcessor } from './components/event_display/EventProcessor';
+  import { welcomeAsciiLines } from './constants/welcomeAscii';
 
   let router: MessageRouter;
   let eventProcessor: EventProcessor;
@@ -21,7 +22,10 @@
   let showSettings = false;
   let showTooltip = false;
   let showNewConvTooltip = false;
+  let showWelcome = false;
   let scrollContainer: HTMLDivElement;
+  $: showWelcome =
+    !isProcessing && processedEvents.length === 0 && messages.length === 0;
 
   onMount(async () => {
     // Clear messages from previous session
@@ -234,9 +238,28 @@
 
     <!-- Messages - scrollable area -->
     <div class="messages-container" bind:this={scrollContainer}>
-      {#if processedEvents.length === 0 && messages.length === 0}
-        <TerminalMessage type="system" content="Welcome to Codex Terminal" />
-        <TerminalMessage type="default" content="Ready for input. Type a command to begin..." />
+      {#if showWelcome}
+        <div class="welcome-screen" role="presentation">
+          <pre class="welcome-ascii">
+            {#each welcomeAsciiLines as line, index (index)}
+              <span class={line.color}>{line.text}</span>
+            {/each}
+          </pre>
+          <p class="welcome-subtitle text-term-bright-green">
+            General in browser AI agent for work tasks
+          </p>
+          <p class="welcome-subtitle text-term-dim-green">
+            Developed and supported by AI Republic
+          </p>
+          <a
+            class="welcome-link"
+            href="https://airepublic.com"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Learn more
+          </a>
+        </div>
       {/if}
 
       {#each messages as message (message.timestamp)}
@@ -376,6 +399,46 @@
   .tooltip {
     animation: fadeIn 0.2s ease;
     z-index: 50;
+  }
+
+  .welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-term-dim-green);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    margin-bottom: 1.5rem;
+    max-width: 100%;
+  }
+
+  .welcome-ascii {
+    margin: 0;
+    font-family: var(--font-terminal);
+    font-size: 0.6rem;
+    line-height: 1.0;
+    white-space: pre;
+  }
+
+  .welcome-ascii span {
+    display: block;
+  }
+
+  .welcome-subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .welcome-link {
+    color: var(--color-term-bright-green);
+    text-decoration: underline;
+  }
+
+  .welcome-link:hover,
+  .welcome-link:focus {
+    color: var(--color-term-yellow);
   }
 
   @keyframes fadeIn {
