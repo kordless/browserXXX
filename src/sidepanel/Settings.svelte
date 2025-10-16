@@ -38,9 +38,9 @@
     try {
       isLoading = true;
 
-      // Check if already authenticated
-      isAuthenticated = chromeAuthManager.isAuthenticated();
-      currentAuthMode = chromeAuthManager.getAuthMode();
+      // Check if already authenticated (await async methods)
+      isAuthenticated = await chromeAuthManager.isAuthenticated();
+      currentAuthMode = await chromeAuthManager.getAuthMode();
 
       // If authenticated with API key, load masked version
       if (isAuthenticated && currentAuthMode === AuthMode.ApiKey) {

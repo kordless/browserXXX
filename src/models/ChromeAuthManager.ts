@@ -1,4 +1,5 @@
-import { AuthManager, AuthMode, CodexAuth, KnownPlan, PlanType } from './types/index.js';
+import { AuthMode } from './types/index.js';
+import type { AuthManager, CodexAuth, KnownPlan, PlanType } from './types/index.js';
 
 /**
  * Chrome Extension AuthManager implementation
@@ -65,7 +66,8 @@ export class ChromeAuthManager implements AuthManager {
   /**
    * Get current authentication data
    */
-  auth(): CodexAuth | null {
+  async auth(): Promise<CodexAuth | null> {
+    await this.ensureInitialized();
     return this.currentAuth;
   }
 
@@ -103,14 +105,16 @@ export class ChromeAuthManager implements AuthManager {
   /**
    * Get account ID if available
    */
-  get_account_id(): string | null {
+  async get_account_id(): Promise<string | null> {
+    await this.ensureInitialized();
     return this.currentAuth?.account_id || null;
   }
 
   /**
    * Get plan type if available
    */
-  get_plan_type(): PlanType | null {
+  async get_plan_type(): Promise<PlanType | null> {
+    await this.ensureInitialized();
     return this.currentAuth?.plan_type || null;
   }
 
@@ -302,7 +306,8 @@ export class ChromeAuthManager implements AuthManager {
   /**
    * Check if user is authenticated
    */
-  isAuthenticated(): boolean {
+  async isAuthenticated(): Promise<boolean> {
+    await this.ensureInitialized();
     return this.currentAuth !== null &&
            (this.currentAuth.token !== undefined || this.currentAuth.mode === AuthMode.Local);
   }
@@ -310,7 +315,8 @@ export class ChromeAuthManager implements AuthManager {
   /**
    * Get current auth mode
    */
-  getAuthMode(): AuthMode | null {
+  async getAuthMode(): Promise<AuthMode | null> {
+    await this.ensureInitialized();
     return this.currentAuth?.mode || null;
   }
 }
