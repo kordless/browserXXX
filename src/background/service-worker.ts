@@ -132,8 +132,14 @@ function setupMessageHandlers(): void {
   router.on(MessageType.SESSION_RESET, async () => {
     console.log('Session reset requested');
     if (agent) {
-      // Reset the current session
+      // Get the current session
       const session = agent.getSession();
+
+      // Abort all running tasks before resetting
+      console.log('Aborting all running tasks...');
+      await session.abortAllTasks('user_interrupt');
+
+      // Reset the session
       await session.reset();
 
       console.log('Session reset complete');
