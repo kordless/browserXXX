@@ -42,7 +42,7 @@ export interface AuthManager {
   /**
    * Get current authentication data
    */
-  auth(): CodexAuth | null;
+  auth(): Promise<CodexAuth | null>;
 
   /**
    * Refresh the authentication token
@@ -52,12 +52,12 @@ export interface AuthManager {
   /**
    * Get account ID if available
    */
-  get_account_id(): string | null;
+  get_account_id(): Promise<string | null>;
 
   /**
    * Get plan type if available
    */
-  get_plan_type(): PlanType | null;
+  get_plan_type(): Promise<PlanType | null>;
 }
 
 /**

@@ -61,8 +61,12 @@ export class ModelClientFactory {
   private static instance: ModelClientFactory;
   private clientCache: Map<string, ModelClient> = new Map();
   private config?: AgentConfig;
+  private storageListener?: (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => void;
 
-  private constructor() {}
+  private constructor() {
+    // Setup storage listener to invalidate cache when API keys change
+    this.setupStorageListener();
+  }
 
   /**
    * Get the singleton instance of the factory
@@ -72,6 +76,43 @@ export class ModelClientFactory {
       ModelClientFactory.instance = new ModelClientFactory();
     }
     return ModelClientFactory.instance;
+  }
+
+  /**
+   * Setup storage listener to invalidate cache when API keys change
+   */
+  private setupStorageListener(): void {
+    this.storageListener = (changes, areaName) => {
+      // Check if any API key related storage changed
+      const relevantKeys = [
+        STORAGE_KEYS.OPENAI_API_KEY,
+        'codex_api_key_encrypted', // ChromeAuthManager encrypted key
+        'codex_auth_data', // ChromeAuthManager auth data
+      ];
+
+      for (const key of relevantKeys) {
+        if (changes[key]) {
+          console.log(`[ModelClientFactory] API key changed in ${areaName} storage, clearing cache`);
+          this.clearCache();
+          break;
+        }
+      }
+    };
+
+    // Listen to both sync and local storage changes
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.onChanged.addListener(this.storageListener);
+    }
+  }
+
+  /**
+   * Cleanup storage listener
+   */
+  destroy(): void {
+    if (this.storageListener && typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.onChanged.removeListener(this.storageListener);
+    }
+    this.clearCache();
   }
 
   /**
@@ -403,7 +444,7 @@ export class ModelClientFactory {
   private hashConfig(config: ModelClientConfig): string {
     const str = JSON.stringify({
       provider: config.provider,
-      apiKey: config.apiKey.slice(0, 10), // Only use first 10 chars for privacy
+      apiKey: config.apiKey?.slice(0, 10) || 'null', // Only use first 10 chars for privacy
       options: config.options || {},
     });
 
