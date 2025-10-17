@@ -43,3 +43,5 @@ logs/
 *.crx
 *.pem
 *.zip
+
+CLAUDE.md
