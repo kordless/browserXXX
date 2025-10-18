@@ -7,7 +7,6 @@
   import { onMount, createEventDispatcher } from 'svelte';
   import { AgentConfig } from '../config/AgentConfig.js';
   import { encryptApiKey, decryptApiKey } from '../utils/encryption.js';
-  import { MessageType } from '../core/MessageRouter.js';
   import { AuthMode } from '../models/types/index.js';
 
   // Component state
@@ -155,7 +154,7 @@
 
       // Send message to service worker to reload config and recreate CodexAgent
       chrome.runtime.sendMessage({
-        type: MessageType.CONFIG_UPDATE
+        type: 'CONFIG_UPDATE'
       }).catch(err => {
         console.error('Failed to notify service worker of config update:', err);
       });
@@ -289,7 +288,7 @@
 
       // Send message to service worker to reload config and recreate CodexAgent
       chrome.runtime.sendMessage({
-        type: MessageType.CONFIG_UPDATE
+        type: 'CONFIG_UPDATE'
       }).catch(err => {
         console.error('Failed to notify service worker of config update:', err);
       });

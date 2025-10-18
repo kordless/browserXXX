@@ -143,24 +143,6 @@ export class ChromeAuthManager implements AuthManager {
   }
 
   /**
-   * Remove all stored authentication data
-   */
-  async clearAuth(): Promise<void> {
-    await this.ensureInitialized();
-
-    // Clear auth config via AgentConfig
-    this.agentConfig.updateAuthConfig({
-      apiKey: '',
-      authMode: AuthMode.ApiKey,
-      accountId: null,
-      planType: null
-    });
-
-    // Clear current auth in memory
-    this.currentAuth = null;
-  }
-
-  /**
    * Test API key by making a simple API call
    */
   async testApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
@@ -234,6 +216,3 @@ export class ChromeAuthManager implements AuthManager {
     return this.currentAuth?.mode || null;
   }
 }
-
-// Export singleton instance
-export const chromeAuthManager = new ChromeAuthManager(AgentConfig.getInstance());

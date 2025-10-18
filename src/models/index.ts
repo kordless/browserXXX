@@ -40,7 +40,6 @@ export {
 // Authentication management
 export {
   ChromeAuthManager,
-  chromeAuthManager,
 } from './ChromeAuthManager';
 
 // Performance optimizations (Phase 9)
