@@ -44,4 +44,6 @@ logs/
 *.pem
 *.zip
 
+# vibe coding related files
 CLAUDE.md
+specs/

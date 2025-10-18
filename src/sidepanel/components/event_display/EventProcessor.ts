@@ -140,6 +140,10 @@ export class EventProcessor {
       case 'WebSearchEnd':
       case 'PatchApplyBegin':
       case 'PatchApplyEnd':
+      case 'ToolExecutionStart':
+      case 'ToolExecutionEnd':
+      case 'ToolExecutionError':
+      case 'ToolExecutionTimeout':
         return 'tool';
 
       // Command output
@@ -171,6 +175,8 @@ export class EventProcessor {
       case 'EnteredReviewMode':
       case 'ExitedReviewMode':
       case 'Interrupted':
+      case 'ToolRegistered':
+      case 'ToolUnregistered':
         return 'system';
 
       default:

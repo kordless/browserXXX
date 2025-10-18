@@ -83,6 +83,9 @@ export enum MessageType {
   // Session management
   SESSION_RESET = 'SESSION_RESET',
   SESSION_RESET_COMPLETE = 'SESSION_RESET_COMPLETE',
+
+  // Configuration management
+  CONFIG_UPDATE = 'CONFIG_UPDATE',
 }
 
 /**

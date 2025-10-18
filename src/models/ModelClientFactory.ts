@@ -5,7 +5,7 @@
 
 import { ModelClient, ModelClientError, type RetryConfig } from './ModelClient';
 import { OpenAIResponsesClient } from './OpenAIResponsesClient';
-import { chromeAuthManager } from './ChromeAuthManager';
+import { ChromeAuthManager } from './ChromeAuthManager';
 import type { AgentConfig } from '../config/AgentConfig';
 
 /**
@@ -61,6 +61,7 @@ export class ModelClientFactory {
   private static instance: ModelClientFactory;
   private clientCache: Map<string, ModelClient> = new Map();
   private config?: AgentConfig;
+  private authManager?: ChromeAuthManager;
   private storageListener?: (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => void;
 
   private constructor() {
@@ -208,47 +209,23 @@ export class ModelClientFactory {
   }
 
   /**
-   * Save API key for a provider to Chrome storage
-   * @param provider The provider
-   * @param apiKey The API key to save
-   */
-  async saveApiKey(provider: ModelProvider, apiKey: string): Promise<void> {
-    // Save to ChromeAuthManager
-    await chromeAuthManager.storeApiKey(apiKey);
-
-    // Also save to original storage for backward compatibility
-    const key = STORAGE_KEYS.OPENAI_API_KEY;
-
-    await new Promise<void>((resolve, reject) => {
-      chrome.storage.sync.set({ [key]: apiKey }, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve();
-        }
-      });
-    });
-
-    // Clear cache to force recreation with new API key
-    this.clearCache(provider);
-  }
-
-  /**
    * Load API key for a provider from Chrome storage
    * @param provider The provider
    * @returns Promise resolving to the API key or null if not found
    */
   async loadApiKey(provider: ModelProvider): Promise<string | null> {
-    // First try to get API key from ChromeAuthManager
-    const apiKey = await chromeAuthManager.retrieveApiKey();
+    // First try to get API key from ChromeAuthManager if available
+    if (this.authManager) {
+      const apiKey = await this.authManager.retrieveApiKey();
 
-    if (apiKey) {
-      // Validate if this key is for OpenAI
-      // OpenAI keys start with 'sk-'
-      const isOpenAIKey = apiKey.startsWith('sk-');
+      if (apiKey) {
+        // Validate if this key is for OpenAI
+        // OpenAI keys start with 'sk-'
+        const isOpenAIKey = apiKey.startsWith('sk-');
 
-      if (provider === 'openai' && isOpenAIKey) {
-        return apiKey;
+        if (provider === 'openai' && isOpenAIKey) {
+          return apiKey;
+        }
       }
     }
 
@@ -318,9 +295,9 @@ export class ModelClientFactory {
   async hasValidApiKey(provider: ModelProvider): Promise<boolean> {
     const apiKey = await this.loadApiKey(provider);
 
-    if (apiKey && apiKey.trim().length > 0) {
+    if (apiKey && apiKey.trim().length > 0 && this.authManager) {
       // Additional validation using ChromeAuthManager
-      return chromeAuthManager.validateApiKey(apiKey);
+      return this.authManager.validateApiKey(apiKey);
     }
 
     return false;
@@ -464,6 +441,8 @@ export class ModelClientFactory {
    */
   async initialize(config: AgentConfig): Promise<void> {
     this.config = config;
+    // Create ChromeAuthManager instance with the config
+    this.authManager = new ChromeAuthManager(config);
     // Clear cache when config changes to use new settings
     this.clientCache.clear();
   }

@@ -6,8 +6,10 @@ import type {
   IAgentConfig,
   IModelConfig,
   IProviderConfig,
-  IProfileConfig
+  IProfileConfig,
+  IAuthConfig
 } from './types';
+import { AuthMode } from '../models/types/Auth.js';
 import {
   VALID_THEMES,
   VALID_UPDATE_CHANNELS,
@@ -412,6 +414,51 @@ export function validateExtensionSettings(ext: any): ValidationResult {
       error: `Invalid update channel: must be ${VALID_UPDATE_CHANNELS.join(', ')}`
     };
   }
+
+  return { valid: true };
+}
+
+/**
+ * Validate authentication configuration
+ */
+export function validateAuthConfig(auth: any): ValidationResult {
+  if (!auth || typeof auth !== 'object') {
+    return { valid: false, error: 'Auth configuration must be an object' };
+  }
+
+  // Validate apiKey (if non-empty, should be valid base64)
+  if (auth.apiKey && typeof auth.apiKey !== 'string') {
+    return {
+      valid: false,
+      field: 'auth.apiKey',
+      value: auth.apiKey,
+      error: 'API key must be a string'
+    };
+  }
+
+  // Validate authMode
+  if (!Object.values(AuthMode).includes(auth.authMode)) {
+    return {
+      valid: false,
+      field: 'auth.authMode',
+      value: auth.authMode,
+      error: `Invalid auth mode: must be one of ${Object.values(AuthMode).join(', ')}`
+    };
+  }
+
+  // Validate lastUpdated (if provided)
+  if (auth.lastUpdated !== undefined) {
+    if (typeof auth.lastUpdated !== 'number' || auth.lastUpdated < 0) {
+      return {
+        valid: false,
+        field: 'auth.lastUpdated',
+        value: auth.lastUpdated,
+        error: 'lastUpdated must be a non-negative number'
+      };
+    }
+  }
+
+  // accountId and planType can be any value or null, no validation needed
 
   return { valid: true };
 }

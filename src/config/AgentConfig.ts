@@ -11,16 +11,18 @@ import type {
   IConfigChangeEvent,
   IExportData,
   IToolsConfig,
-  IToolSpecificConfig
+  IToolSpecificConfig,
+  IAuthConfig
 } from './types';
 import { ConfigValidationError } from './types';
 import { ConfigStorage } from '../storage/ConfigStorage';
 import {
   DEFAULT_AGENT_CONFIG,
+  DEFAULT_AUTH_CONFIG,
   mergeWithDefaults,
   getDefaultProviders
 } from './defaults';
-import { validateConfig, validateModelConfig, validateProviderConfig } from './validators';
+import { validateConfig, validateModelConfig, validateProviderConfig, validateAuthConfig } from './validators';
 
 export class AgentConfig implements IConfigService {
   private static instance: AgentConfig | null = null;
@@ -55,6 +57,7 @@ export class AgentConfig implements IConfigService {
 
     try {
       const storedConfig = await this.storage.get();
+
       if (storedConfig) {
         this.currentConfig = mergeWithDefaults(storedConfig);
       } else {
@@ -67,6 +70,26 @@ export class AgentConfig implements IConfigService {
       console.error('Failed to initialize config:', error);
       this.currentConfig = DEFAULT_AGENT_CONFIG;
       this.initialized = true;
+    }
+  }
+
+  /**
+   * Reload the config from storage
+   * Useful when config has been updated by another component
+   */
+  public async reload(): Promise<void> {
+    try {
+      const storedConfig = await this.storage.get();
+
+      if (storedConfig) {
+        this.currentConfig = mergeWithDefaults(storedConfig);
+      } else {
+        // No stored config, use defaults
+        this.currentConfig = DEFAULT_AGENT_CONFIG;
+      }
+    } catch (error) {
+      console.error('Failed to reload config:', error);
+      throw error;
     }
   }
 
@@ -274,6 +297,71 @@ export class AgentConfig implements IConfigService {
 
     this.emitChangeEvent('provider', deleted, null);
   }
+
+  // Authentication management
+  /**
+   * Get authentication configuration
+   * @returns Current auth config or defaults if not set
+   * @example
+   * const authConfig = agentConfig.getAuthConfig();
+   * if (authConfig.apiKey) {
+   *   console.log('API key is configured');
+   * }
+   */
+  getAuthConfig(): IAuthConfig {
+    this.ensureInitialized();
+    return this.currentConfig.auth || DEFAULT_AUTH_CONFIG;
+  }
+
+  /**
+   * Update authentication configuration
+   * @param config - Partial auth config to update
+   * @returns Updated complete auth config
+   * @throws {ConfigValidationError} If validation fails
+   * @remarks Automatically sets lastUpdated timestamp and persists to storage
+   * @example
+   * // Update API key
+   * agentConfig.updateAuthConfig({
+   *   apiKey: encryptApiKey('sk-ant-api03-...'),
+   *   authMode: AuthMode.ApiKey
+   * });
+   *
+   * // Clear auth
+   * agentConfig.updateAuthConfig({
+   *   apiKey: '',
+   *   accountId: null,
+   *   planType: null
+   * });
+   */
+  updateAuthConfig(config: Partial<IAuthConfig>): IAuthConfig {
+    this.ensureInitialized();
+
+    const oldAuth = this.getAuthConfig();
+    const newAuth = {
+      ...oldAuth,
+      ...config,
+      lastUpdated: Date.now()
+    };
+
+    const validation = validateAuthConfig(newAuth);
+    if (!validation.valid) {
+      throw new ConfigValidationError(
+        validation.field || 'auth',
+        validation.value,
+        validation.error || 'Invalid auth configuration'
+      );
+    }
+
+    this.currentConfig.auth = newAuth;
+    this.storage.set(this.currentConfig).catch(err => {
+      console.error('Failed to persist config:', err);
+    });
+
+    this.emitChangeEvent('auth' as any, oldAuth, newAuth);
+
+    return newAuth;
+  }
+
 
   // T036: Profile management
   getProfiles(): Record<string, IProfileConfig> {
