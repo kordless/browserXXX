@@ -2,7 +2,16 @@
  * T037: Default centralized agent configuration values
  */
 
-import type { IAgentConfig, IModelConfig, IUserPreferences, ICacheSettings, IExtensionSettings, IPermissionSettings, IToolsConfig, IStorageConfig } from './types';
+import type { IAgentConfig, IModelConfig, IUserPreferences, ICacheSettings, IExtensionSettings, IPermissionSettings, IToolsConfig, IStorageConfig, IAuthConfig } from './types';
+import { AuthMode } from '../models/types/Auth.js';
+
+export const DEFAULT_AUTH_CONFIG: IAuthConfig = {
+  apiKey: '',
+  authMode: AuthMode.ApiKey,
+  accountId: null,
+  planType: null,
+  lastUpdated: 0
+};
 
 export const DEFAULT_MODEL_CONFIG: IModelConfig = {
   selected: 'gpt-5',
@@ -134,14 +143,14 @@ export const DEFAULT_AGENT_CONFIG: IAgentConfig = {
   cache: DEFAULT_CACHE_SETTINGS,
   extension: DEFAULT_EXTENSION_SETTINGS,
   tools: DEFAULT_TOOLS_CONFIG,
-  storage: DEFAULT_STORAGE_CONFIG
+  storage: DEFAULT_STORAGE_CONFIG,
+  auth: DEFAULT_AUTH_CONFIG
 };
 
 // Storage keys
 export const STORAGE_KEYS = {
-  CONFIG: 'codex_config_v1',
-  CONFIG_BACKUP: 'codex_config_backup',
-  CONFIG_CACHE: 'codex_config_cache'
+  CONFIG: 'agent_config',
+  CONFIG_VERSION: 'config_version'
 } as const;
 
 // Configuration limits
@@ -218,6 +227,10 @@ export function mergeWithDefaults(partial: Partial<IAgentConfig>): IAgentConfig 
     storage: {
       ...DEFAULT_STORAGE_CONFIG,
       ...(partial.storage || {})
+    },
+    auth: {
+      ...DEFAULT_AUTH_CONFIG,
+      ...(partial.auth || {})
     }
   };
 }

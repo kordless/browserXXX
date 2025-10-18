@@ -208,32 +208,6 @@ export class ModelClientFactory {
   }
 
   /**
-   * Save API key for a provider to Chrome storage
-   * @param provider The provider
-   * @param apiKey The API key to save
-   */
-  async saveApiKey(provider: ModelProvider, apiKey: string): Promise<void> {
-    // Save to ChromeAuthManager
-    await chromeAuthManager.storeApiKey(apiKey);
-
-    // Also save to original storage for backward compatibility
-    const key = STORAGE_KEYS.OPENAI_API_KEY;
-
-    await new Promise<void>((resolve, reject) => {
-      chrome.storage.sync.set({ [key]: apiKey }, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve();
-        }
-      });
-    });
-
-    // Clear cache to force recreation with new API key
-    this.clearCache(provider);
-  }
-
-  /**
    * Load API key for a provider from Chrome storage
    * @param provider The provider
    * @returns Promise resolving to the API key or null if not found

@@ -1,51 +1,45 @@
 import { AuthMode } from './types/index.js';
 import type { AuthManager, CodexAuth, KnownPlan, PlanType } from './types/index.js';
+import { AgentConfig } from '../config/AgentConfig.js';
+import { encryptApiKey, decryptApiKey } from '../utils/encryption.js';
 
 /**
  * Chrome Extension AuthManager implementation
  * Handles secure storage and management of API keys and authentication data
  */
 export class ChromeAuthManager implements AuthManager {
-  private static readonly STORAGE_KEYS = {
-    AUTH_DATA: 'codex_auth_data',
-    API_KEY: 'codex_api_key',
-    ENCRYPTED_SUFFIX: '_encrypted'
-  } as const;
-
   private currentAuth: CodexAuth | null = null;
   private initPromise: Promise<void> | null = null;
+  private agentConfig: AgentConfig;
 
-  constructor() {
+  constructor(agentConfig: AgentConfig) {
+    if (!agentConfig) {
+      throw new Error('AgentConfig is required for ChromeAuthManager');
+    }
+    this.agentConfig = agentConfig;
     // Initialize auth manager asynchronously
     this.initPromise = this.initialize();
   }
 
   /**
    * Initialize auth manager by loading stored data
+   * Note: Assumes AgentConfig is already initialized at application startup
    */
   private async initialize(): Promise<void> {
     try {
-      const result = await chrome.storage.local.get([
-        ChromeAuthManager.STORAGE_KEYS.AUTH_DATA,
-        ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX
-      ]);
+      // Load auth config from AgentConfig (assumes already initialized)
+      const authConfig = this.agentConfig.getAuthConfig();
 
-      // Load existing auth data if available
-      if (result[ChromeAuthManager.STORAGE_KEYS.AUTH_DATA]) {
-        this.currentAuth = result[ChromeAuthManager.STORAGE_KEYS.AUTH_DATA] as CodexAuth;
-      }
-
-      // If no auth data but encrypted API key exists, create auth from API key
-      if (!this.currentAuth && result[ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX]) {
-        const encryptedKey = result[ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX];
-        const apiKey = this.decrypt(encryptedKey);
+      if (authConfig.apiKey) {
+        // Decrypt the API key
+        const apiKey = decryptApiKey(authConfig.apiKey);
         if (apiKey) {
           this.currentAuth = {
-            mode: AuthMode.ApiKey,
-            token: apiKey
+            mode: authConfig.authMode,
+            token: apiKey,
+            account_id: authConfig.accountId || undefined,
+            plan_type: authConfig.planType || undefined
           };
-          // Save the auth data
-          await this.saveAuthData();
         }
       }
     } catch (error) {
@@ -119,56 +113,11 @@ export class ChromeAuthManager implements AuthManager {
   }
 
   /**
-   * Store API key securely
-   */
-  async storeApiKey(apiKey: string): Promise<void> {
-    await this.ensureInitialized();
-
-    if (!apiKey || typeof apiKey !== 'string') {
-      throw new Error('Invalid API key provided');
-    }
-
-    // Encrypt the API key
-    const encrypted = this.encrypt(apiKey);
-
-    // Store encrypted API key
-    await chrome.storage.local.set({
-      [ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX]: encrypted
-    });
-
-    // Update current auth
-    this.currentAuth = {
-      mode: AuthMode.ApiKey,
-      token: apiKey,
-      // Set default plan type for API key users
-      plan_type: { type: 'unknown', plan: 'api_key' }
-    };
-
-    // Save auth data
-    await this.saveAuthData();
-  }
-
-  /**
    * Retrieve API key
    */
   async retrieveApiKey(): Promise<string | null> {
     await this.ensureInitialized();
-
-    try {
-      const result = await chrome.storage.local.get([
-        ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX
-      ]);
-
-      const encrypted = result[ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX];
-      if (!encrypted) {
-        return null;
-      }
-
-      return this.decrypt(encrypted);
-    } catch (error) {
-      console.error('Failed to retrieve API key:', error);
-      return null;
-    }
+    return this.currentAuth?.token || null;
   }
 
   /**
@@ -199,13 +148,15 @@ export class ChromeAuthManager implements AuthManager {
   async clearAuth(): Promise<void> {
     await this.ensureInitialized();
 
-    // Remove from storage
-    await chrome.storage.local.remove([
-      ChromeAuthManager.STORAGE_KEYS.AUTH_DATA,
-      ChromeAuthManager.STORAGE_KEYS.API_KEY + ChromeAuthManager.STORAGE_KEYS.ENCRYPTED_SUFFIX
-    ]);
+    // Clear auth config via AgentConfig
+    this.agentConfig.updateAuthConfig({
+      apiKey: '',
+      authMode: AuthMode.ApiKey,
+      accountId: null,
+      planType: null
+    });
 
-    // Clear current auth
+    // Clear current auth in memory
     this.currentAuth = null;
   }
 
@@ -265,43 +216,6 @@ export class ChromeAuthManager implements AuthManager {
     }
   }
 
-  /**
-   * Save current auth data to storage
-   */
-  private async saveAuthData(): Promise<void> {
-    if (!this.currentAuth) {
-      return;
-    }
-
-    await chrome.storage.local.set({
-      [ChromeAuthManager.STORAGE_KEYS.AUTH_DATA]: this.currentAuth
-    });
-  }
-
-  /**
-   * Basic encryption for API keys (base64 encoding with simple obfuscation)
-   * Note: This is not cryptographically secure, just basic obfuscation
-   * For production, consider using Web Crypto API
-   */
-  private encrypt(value: string): string {
-    // Simple obfuscation: reverse string and base64 encode
-    const reversed = value.split('').reverse().join('');
-    return btoa(reversed);
-  }
-
-  /**
-   * Decrypt obfuscated API key
-   */
-  private decrypt(encrypted: string): string | null {
-    try {
-      const decoded = atob(encrypted);
-      // Reverse the string back
-      return decoded.split('').reverse().join('');
-    } catch (error) {
-      console.error('Failed to decrypt API key:', error);
-      return null;
-    }
-  }
 
   /**
    * Check if user is authenticated
@@ -322,4 +236,4 @@ export class ChromeAuthManager implements AuthManager {
 }
 
 // Export singleton instance
-export const chromeAuthManager = new ChromeAuthManager();
+export const chromeAuthManager = new ChromeAuthManager(AgentConfig.getInstance());

@@ -3,6 +3,38 @@
  * Type definitions for the centralized config system
  */
 
+import { AuthMode, PlanType } from '../models/types/Auth.js';
+
+// Authentication configuration
+export interface IAuthConfig {
+  /**
+   * Encrypted API key
+   * Empty string indicates no API key configured
+   */
+  apiKey: string;
+
+  /**
+   * Authentication mode
+   */
+  authMode: AuthMode;
+
+  /**
+   * Optional account identifier
+   */
+  accountId?: string | null;
+
+  /**
+   * Optional plan type information
+   */
+  planType?: PlanType | null;
+
+  /**
+   * Timestamp of last configuration update in milliseconds
+   * 0 indicates never updated
+   */
+  lastUpdated?: number;
+}
+
 // Main centralized configuration interface for the agent
 export interface IAgentConfig {
   version: string;
@@ -15,6 +47,7 @@ export interface IAgentConfig {
   extension: IExtensionSettings;
   tools?: IToolsConfig;
   storage?: IStorageConfig;
+  auth?: IAuthConfig;
 }
 
 // Model configuration
