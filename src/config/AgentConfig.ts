@@ -73,6 +73,26 @@ export class AgentConfig implements IConfigService {
     }
   }
 
+  /**
+   * Reload the config from storage
+   * Useful when config has been updated by another component
+   */
+  public async reload(): Promise<void> {
+    try {
+      const storedConfig = await this.storage.get();
+
+      if (storedConfig) {
+        this.currentConfig = mergeWithDefaults(storedConfig);
+      } else {
+        // No stored config, use defaults
+        this.currentConfig = DEFAULT_AGENT_CONFIG;
+      }
+    } catch (error) {
+      console.error('Failed to reload config:', error);
+      throw error;
+    }
+  }
+
   // Core CRUD operations
   getConfig(): IAgentConfig {
     this.ensureInitialized();

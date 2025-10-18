@@ -198,6 +198,44 @@ function setupMessageHandlers(): void {
     return { approved: false, message: 'Approval system not fully integrated yet' };
   });
 
+  // Handle configuration updates
+  router.on(MessageType.CONFIG_UPDATE, async () => {
+    console.log('Configuration update requested, reloading config and recreating agent...');
+
+    try {
+      // Reload AgentConfig from storage
+      if (agentConfig) {
+        await agentConfig.reload();
+        console.log('AgentConfig reloaded from storage');
+      } else {
+        // Initialize a new configuration singleton
+        agentConfig = AgentConfig.getInstance();
+        await agentConfig.initialize();
+      }
+
+      // Recreate CodexAgent with updated configuration
+      if (agent) {
+        // Clean up old agent
+        const session = agent.getSession();
+        await session.close();
+        await agent.cleanup();
+      }
+
+      // Create new agent with updated config
+      agent = new CodexAgent(agentConfig);
+      await agent.initialize();
+      console.log('CodexAgent recreated with updated configuration');
+
+      // Re-initialize browser tools with new config
+      await initializeBrowserTools();
+
+      return { success: true, message: 'Configuration reloaded and agent recreated' };
+    } catch (error) {
+      console.error('Failed to reload configuration:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
   // Handle diff events
   router.on(MessageType.DIFF_GENERATED, async (message) => {
     if (!agent) throw new Error('Agent not initialized');

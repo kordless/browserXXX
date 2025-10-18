@@ -5,7 +5,9 @@
 
 <script lang="ts">
   import { onMount, createEventDispatcher } from 'svelte';
-  import { chromeAuthManager, ChromeAuthManager } from '../models/ChromeAuthManager.js';
+  import { AgentConfig } from '../config/AgentConfig.js';
+  import { encryptApiKey, decryptApiKey } from '../utils/encryption.js';
+  import { MessageType } from '../core/MessageRouter.js';
   import { AuthMode } from '../models/types/index.js';
 
   // Component state
@@ -20,6 +22,9 @@
   let isAuthenticated = false;
   let currentAuthMode: AuthMode | null = null;
 
+  // AgentConfig instance for this component
+  let agentConfig: AgentConfig | null = null;
+
   // Event dispatcher for parent components
   const dispatch = createEventDispatcher<{
     authUpdated: { isAuthenticated: boolean; mode: AuthMode | null };
@@ -28,27 +33,40 @@
 
   // Load existing settings on mount
   onMount(async () => {
+    // Create and initialize AgentConfig instance
+    agentConfig = AgentConfig.getInstance();
+    await agentConfig.initialize();
+
     await loadSettings();
   });
 
   /**
-   * Load existing settings from auth manager
+   * Load existing settings from AgentConfig
    */
   async function loadSettings() {
     try {
       isLoading = true;
 
-      // Check if already authenticated (await async methods)
-      isAuthenticated = await chromeAuthManager.isAuthenticated();
-      currentAuthMode = await chromeAuthManager.getAuthMode();
+      if (!agentConfig) {
+        throw new Error('AgentConfig not initialized');
+      }
 
-      // If authenticated with API key, load masked version
-      if (isAuthenticated && currentAuthMode === AuthMode.ApiKey) {
-        const storedKey = await chromeAuthManager.retrieveApiKey();
-        if (storedKey) {
-          apiKey = storedKey;
-          maskedApiKey = maskApiKey(storedKey);
+      // Get auth config
+      const authConfig = agentConfig.getAuthConfig();
+
+      // Check if API key exists
+      if (authConfig.apiKey) {
+        // Decrypt the API key for display
+        const decryptedKey = decryptApiKey(authConfig.apiKey);
+        if (decryptedKey) {
+          apiKey = decryptedKey;
+          maskedApiKey = maskApiKey(decryptedKey);
+          isAuthenticated = true;
+          currentAuthMode = authConfig.authMode;
         }
+      } else {
+        isAuthenticated = false;
+        currentAuthMode = null;
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -100,17 +118,33 @@
       return;
     }
 
-    // Validate format
-    if (!chromeAuthManager.validateApiKey(apiKey)) {
+    // Validate format - basic check for OpenAI and Anthropic keys
+    const isValidFormat =
+      (apiKey.startsWith('sk-') && apiKey.length >= 40) ||
+      (apiKey.startsWith('sk-ant-') && apiKey.length >= 40);
+
+    if (!isValidFormat) {
       showMessage('Invalid API key format. Keys should start with "sk-" or "sk-ant-"', 'error');
+      return;
+    }
+
+    if (!agentConfig) {
+      showMessage('Configuration not initialized', 'error');
       return;
     }
 
     try {
       isLoading = true;
 
-      // Store the API key
-      await chromeAuthManager.storeApiKey(apiKey);
+      // Encrypt the API key before storing
+      const encryptedKey = encryptApiKey(apiKey);
+
+      // Update auth config via AgentConfig
+      agentConfig.updateAuthConfig({
+        apiKey: encryptedKey,
+        authMode: AuthMode.ApiKey,
+        planType: { type: 'unknown', plan: 'api_key' }
+      });
 
       // Update component state
       isAuthenticated = true;
@@ -118,6 +152,13 @@
       maskedApiKey = maskApiKey(apiKey);
 
       showMessage('API key saved successfully!', 'success');
+
+      // Send message to service worker to reload config and recreate CodexAgent
+      chrome.runtime.sendMessage({
+        type: MessageType.CONFIG_UPDATE
+      }).catch(err => {
+        console.error('Failed to notify service worker of config update:', err);
+      });
 
       // Notify parent components
       dispatch('authUpdated', {
@@ -142,23 +183,72 @@
       return;
     }
 
+    // Validate format
+    const isValidFormat =
+      (apiKey.startsWith('sk-') && apiKey.length >= 40) ||
+      (apiKey.startsWith('sk-ant-') && apiKey.length >= 40);
+
+    if (!isValidFormat) {
+      showMessage('Invalid API key format', 'error');
+      testResult = { valid: false, error: 'Invalid format' };
+      return;
+    }
+
     try {
       isTesting = true;
       testResult = null;
 
-      const result = await chromeAuthManager.testApiKey(apiKey);
-      testResult = result;
+      // Determine provider based on key format
+      const isAnthropic = apiKey.startsWith('sk-ant-');
+      const baseUrl = isAnthropic
+        ? 'https://api.anthropic.com/v1/messages'
+        : 'https://api.openai.com/v1/chat/completions';
 
-      if (result.valid) {
-        showMessage('Connection test successful!', 'success');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+
+      if (isAnthropic) {
+        headers['x-api-key'] = apiKey;
+        headers['anthropic-version'] = '2023-06-01';
       } else {
-        showMessage(`Connection test failed: ${result.error}`, 'error');
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      // Make a minimal test request
+      const testRequest = isAnthropic ? {
+        model: 'claude-3-haiku-20240307',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'test' }]
+      } : {
+        model: 'gpt-4o-mini',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'test' }]
+      };
+
+      const response = await fetch(baseUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(testRequest)
+      });
+
+      if (response.ok || response.status === 400) {
+        // 400 is OK for test - means auth worked but request was invalid
+        testResult = { valid: true };
+        showMessage('Connection test successful!', 'success');
+      } else if (response.status === 401) {
+        testResult = { valid: false, error: 'Invalid API key' };
+        showMessage('Connection test failed: Invalid API key', 'error');
+      } else {
+        testResult = { valid: false, error: `API error: ${response.status}` };
+        showMessage(`Connection test failed: API error ${response.status}`, 'error');
       }
 
     } catch (error) {
       console.error('Failed to test API key:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Network error';
+      testResult = { valid: false, error: errorMsg };
       showMessage('Failed to test connection', 'error');
-      testResult = { valid: false, error: 'Network error' };
     } finally {
       isTesting = false;
     }
@@ -172,10 +262,21 @@
       return;
     }
 
+    if (!agentConfig) {
+      showMessage('Configuration not initialized', 'error');
+      return;
+    }
+
     try {
       isLoading = true;
 
-      await chromeAuthManager.clearAuth();
+      // Clear auth config via AgentConfig
+      agentConfig.updateAuthConfig({
+        apiKey: '',
+        authMode: AuthMode.ApiKey,
+        accountId: null,
+        planType: null
+      });
 
       // Reset component state
       apiKey = '';
@@ -185,6 +286,13 @@
       testResult = null;
 
       showMessage('API key removed successfully', 'info');
+
+      // Send message to service worker to reload config and recreate CodexAgent
+      chrome.runtime.sendMessage({
+        type: MessageType.CONFIG_UPDATE
+      }).catch(err => {
+        console.error('Failed to notify service worker of config update:', err);
+      });
 
       // Notify parent components
       dispatch('authUpdated', {
