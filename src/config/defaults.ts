@@ -72,6 +72,7 @@ export const DEFAULT_TOOLS_CONFIG: IToolsConfig = {
   navigation_tool: true,
   network_intercept_tool: false,
   data_extraction_tool: false,
+  page_action_tool: true,
 
   // Agent execution tool toggles
   execCommand: false,
@@ -89,7 +90,8 @@ export const DEFAULT_TOOLS_CONFIG: IToolsConfig = {
     'dom_tool',
     'navigation_tool',
     'tab_tool',
-    'storage_tool'
+    'storage_tool',
+    'page_action'
   ],
   disabled: [],
   timeout: 30000, // 30 seconds default
@@ -128,6 +130,14 @@ export const DEFAULT_TOOLS_CONFIG: IToolsConfig = {
       timeout: 30000,
       options: {
         maxRecords: 1000
+      }
+    },
+    'page_action': {
+      enabled: true,
+      timeout: 60000,
+      options: {
+        retryAttempts: 3,
+        retryDelay: 100
       }
     }
   }
