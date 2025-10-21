@@ -10,7 +10,7 @@ A Chrome extension that lets AI agents interact with web pages.
 
 ## Install
 ```bash
-git clone git@github.com:The-AI-Republic/browserx.git
+git clone git@github.com:kordless/browserxxx.git
 cd browserx
 npm install
 npm run build
