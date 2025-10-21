@@ -1,4 +1,4 @@
-# BrowserX
+# BrowserXXX
 
 A Chrome extension that lets AI agents interact with web pages.
 
@@ -11,7 +11,7 @@ A Chrome extension that lets AI agents interact with web pages.
 ## Install
 ```bash
 git clone git@github.com:kordless/browserxxx.git
-cd browserx
+cd browserxxx
 npm install
 npm run build
 ```
