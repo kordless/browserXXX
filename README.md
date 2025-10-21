@@ -34,5 +34,3 @@ Load `tests/tools/e2e` to test individual tools.
 ## License
 
 Apache 2.0 (derived from OpenAI's Codex)
-
-Contact: mrc@airepublic.com
